@@ -40,6 +40,16 @@ wchar_t* FindOwnExecutableName()
 	return ret;
 }
 
+// Helper to check if a string is a valid number (doesn't contain non-numeric characters)
+bool isNumericString(const std::string& str) {
+    for (char c : str) {
+        if (c < '0' || c > '9') {
+            return false;
+        }
+    }
+    return !str.empty();
+}
+
 std::wstring FindLatestAppDir() 
 {
 	std::wstring ourDir;
@@ -55,6 +65,9 @@ std::wstring FindLatestAppDir()
 
 	version::Semver200_version acc("0.0.0");
 	std::wstring acc_s;
+	
+	// Track the highest build number separately for versions with same major.minor.patch
+	int highestBuildNumber = -1;
 
 	do {
 		std::wstring appVer = fileInfo.cFileName;
@@ -67,9 +80,42 @@ std::wstring FindLatestAppDir()
 
 		version::Semver200_version thisVer(s);
 
-		if (thisVer > acc) {
+		// Check if the versions are equal in terms of major.minor.patch
+		bool sameVersion = (thisVer.major() == acc.major() && 
+		                   thisVer.minor() == acc.minor() && 
+		                   thisVer.patch() == acc.patch());
+		
+		// If they're the same version, compare build metadata
+		if (sameVersion) {
+		    // Extract build number if it exists
+		    int buildNumber = -1;
+		    if (thisVer.build().size() > 0) {
+		        std::string buildStr = thisVer.build()[0];
+		        if (isNumericString(buildStr)) {
+		            buildNumber = std::stoi(buildStr);
+		        }
+		    }
+		    
+		    // If this build number is higher, use it
+		    if (buildNumber > highestBuildNumber) {
+		        highestBuildNumber = buildNumber;
+		        acc = thisVer;
+		        acc_s = appVer;
+		    }
+		}
+		// Otherwise use normal semver comparison
+		else if (thisVer > acc) {
 			acc = thisVer;
 			acc_s = appVer;
+			
+			// Reset highest build number for the new version
+			highestBuildNumber = -1;
+			if (thisVer.build().size() > 0) {
+			    std::string buildStr = thisVer.build()[0];
+			    if (isNumericString(buildStr)) {
+			        highestBuildNumber = std::stoi(buildStr);
+			    }
+			}
 		}
 	} while (FindNextFile(hFile, &fileInfo));
 
