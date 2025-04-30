@@ -40,14 +40,11 @@ wchar_t* FindOwnExecutableName()
 	return ret;
 }
 
-// Helper to check if a string is a valid number (doesn't contain non-numeric characters)
-bool isNumericString(const std::string& str) {
-    for (char c : str) {
-        if (c < '0' || c > '9') {
-            return false;
-        }
-    }
-    return !str.empty();
+/**
+ * Helper function to check if a character is a digit
+ */
+bool isDigit(char c) {
+    return c >= '0' && c <= '9';
 }
 
 std::wstring FindLatestAppDir() 
@@ -65,9 +62,6 @@ std::wstring FindLatestAppDir()
 
 	version::Semver200_version acc("0.0.0");
 	std::wstring acc_s;
-	
-	// Track the highest build number separately for versions with same major.minor.patch
-	int highestBuildNumber = -1;
 
 	do {
 		std::wstring appVer = fileInfo.cFileName;
@@ -80,42 +74,38 @@ std::wstring FindLatestAppDir()
 
 		version::Semver200_version thisVer(s);
 
-		// Check if the versions are equal in terms of major.minor.patch
-		bool sameVersion = (thisVer.major() == acc.major() && 
-		                   thisVer.minor() == acc.minor() && 
-		                   thisVer.patch() == acc.patch());
-		
-		// If they're the same version, compare build metadata
-		if (sameVersion) {
-		    // Extract build number if it exists
-		    int buildNumber = -1;
-		    if (thisVer.build().size() > 0) {
-		        std::string buildStr = thisVer.build()[0];
-		        if (isNumericString(buildStr)) {
-		            buildNumber = std::stoi(buildStr);
-		        }
-		    }
-		    
-		    // If this build number is higher, use it
-		    if (buildNumber > highestBuildNumber) {
-		        highestBuildNumber = buildNumber;
-		        acc = thisVer;
-		        acc_s = appVer;
-		    }
+		// Special handling for versions with same major.minor.patch
+		if (thisVer.major() == acc.major() && 
+		    thisVer.minor() == acc.minor() && 
+		    thisVer.patch() == acc.patch()) {
+			
+			// Check if both versions have build metadata
+			if (!thisVer.build().empty() && !acc.build().empty()) {
+				// Get the first digit of each build number
+				char thisFirstChar = thisVer.build()[0];
+				char accFirstChar = acc.build()[0];
+				
+				// If both are digits, compare them directly
+				if (isDigit(thisFirstChar) && isDigit(accFirstChar)) {
+					int thisDigit = thisFirstChar - '0';
+					int accDigit = accFirstChar - '0';
+					
+					// If this build digit is higher, use this version
+					if (thisDigit > accDigit) {
+						acc = thisVer;
+						acc_s = appVer;
+					}
+					
+					// Skip to next iteration
+					continue;
+				}
+			}
 		}
-		// Otherwise use normal semver comparison
-		else if (thisVer > acc) {
+		
+		// Standard semver comparison for different versions
+		if (thisVer > acc) {
 			acc = thisVer;
 			acc_s = appVer;
-			
-			// Reset highest build number for the new version
-			highestBuildNumber = -1;
-			if (thisVer.build().size() > 0) {
-			    std::string buildStr = thisVer.build()[0];
-			    if (isNumericString(buildStr)) {
-			        highestBuildNumber = std::stoi(buildStr);
-			    }
-			}
 		}
 	} while (FindNextFile(hFile, &fileInfo));
 
