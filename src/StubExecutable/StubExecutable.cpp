@@ -81,23 +81,26 @@ std::wstring FindLatestAppDir()
 			
 			// Check if both versions have build metadata
 			if (!thisVer.build().empty() && !acc.build().empty()) {
-				// Get the first digit of each build number
-				char thisFirstChar = thisVer.build()[0];
-				char accFirstChar = acc.build()[0];
-				
-				// If both are digits, compare them directly
-				if (isDigit(thisFirstChar) && isDigit(accFirstChar)) {
-					int thisDigit = thisFirstChar - '0';
-					int accDigit = accFirstChar - '0';
+				// Instead of just comparing the first digit, compare entire build strings as numbers
+				try {
+					// Parse build numbers as integers (assuming they're numeric)
+					int thisBuild = std::stoi(thisVer.build());
+					int accBuild = std::stoi(acc.build());
 					
-					// If this build digit is higher, use this version
-					if (thisDigit > accDigit) {
+					// If this build number is higher, use this version
+					if (thisBuild > accBuild) {
 						acc = thisVer;
 						acc_s = appVer;
 					}
 					
-					// Skip to next iteration
+					// Skip to next iteration since we've handled the comparison
 					continue;
+				}
+				catch (const std::invalid_argument&) {
+					// If build isn't a valid number, fall back to standard semver comparison
+				}
+				catch (const std::out_of_range&) {
+					// If build number is too large, fall back to standard semver comparison
 				}
 			}
 		}
