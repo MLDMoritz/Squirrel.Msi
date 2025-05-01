@@ -40,13 +40,6 @@ wchar_t* FindOwnExecutableName()
 	return ret;
 }
 
-/**
- * Helper function to check if a character is a digit
- */
-bool isDigit(char c) {
-    return c >= '0' && c <= '9';
-}
-
 std::wstring FindLatestAppDir() 
 {
 	std::wstring ourDir;
